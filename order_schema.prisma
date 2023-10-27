@@ -1,0 +1,3121 @@
+// This is your Prisma schema file.
+// learn more about it in the docs https//pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../node_modules/@order/prisma/client"
+  binaryTargets = ["native", "debian-openssl-1.1.x"]
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("ORDER_DATABASE_URL")
+}
+
+model Order {
+  id                         String               @id @default(auto()) @map("_id") @db.ObjectId
+  orderId                    String
+  orderReferenceId           String               @unique
+  transactionReferenceId     String
+  previousOrderReferenceIds  String[]
+  allTransactionReferenceIds String[]
+  bookingSource              String?
+  processedAs                ProcessedAs
+  cancelType                 CancelType?
+  rescheduleType             RescheduleType?
+  isRescheduled              Boolean?
+  isUpgraded                 Boolean?
+  customerId                 String
+  apiVersion                 String
+  anonymousId                String?
+  deviceInfo                 DeviceInfo
+  businessType               BusinessType
+  businessSubType            BusinessSubType
+  merchantDetails            MerchantDetails
+  grossAmount                Float
+  totalAmount                Float?
+  earning                    Earning?
+  couponDetail               CouponDetail[]
+  toBeSettled                Boolean?
+  settlementHistory          SettlementHistory[]
+  transactionHistory         TransactionHistory[]
+  waiveOff                   Float                @default(0)
+  status                     OrderStatus
+  statusHistory              OrderStatusHistory[]
+  refundHistory              TransactionHistory[]
+  orderDetail                OrderDetail
+  charges                    RootCharges?
+  refundBreakup              RootRefundBreakup[]
+  error                      Error?
+  isS2S                      Boolean?
+  modifiedOn                 DateTime             @updatedAt
+  createdOn                  DateTime             @default(now())
+
+  // Table name
+  @@map("order")
+}
+
+type RootRefundBreakup {
+  bank    Float @default(0)
+  loyalty Float @default(0)
+  promo   Float @default(0)
+}
+
+type Earning {
+  potentialEarning EarningDetails?
+  finalEarning     EarningDetails?
+}
+
+type EarningDetails {
+  total  Float @default(0)
+  reward Float @default(0)
+  order  Float @default(0)
+}
+
+type MerchantDetails {
+  merchantId         String
+  merchantName       String
+  merchantAccessCode String?
+  storeId            String
+  storeName          String
+  storeState         String
+  locationCode       String?
+  masterMid          String?
+  mid                String
+  email              String?
+  escalationEmail    String?
+}
+
+type Error {
+  errorCode              String?
+  errorMessage           String?
+}
+
+type OrderDetail {
+  bookingId              String?
+  itineraryId            String?
+  pickupDate             String?
+  currencyCode           String?
+  flightbookingDetail    FlightBookingDetail?
+  dutyfreeDetail         DutyFreeDetail?
+  pranaamDetail          PranaamDetail?
+  cabDetail              CabDetail?
+  forexDetail            ForexDetail?
+  holidaysDetail         HolidaysDetail?
+  hotelDetail            HotelDetail?
+  carparkingDetail       CarParkingDetail?
+  groupBookingDetail     GroupBookingDetail?
+  foodAndBeveragesDetail FoodAndBeveragesDetail?
+  boardingDateTime       Int?
+}
+
+type TransactionHistory {
+  transactionReferenceId String
+  status                 TransactionStatus?
+  paidBy                 TransactionPaidBy?
+  waiveOff               Float?             @default(0)
+  transactionMode        String
+  modifiedOn             DateTime?          @default(now())
+}
+
+type TransactionPaidBy {
+  bank    TransactionPaidByOptions?
+  loyalty TransactionPaidByOptions?
+  promo   TransactionPaidByOptions?
+}
+
+type TransactionPaidByOptions {
+  amount Float @default(0)
+}
+
+type OrderRefundPaidByOptions {
+  transactionReferenceId String
+  amount                 Float
+}
+
+type SettlementHistoryRefunds {
+  convenienceFee   Float?
+  insurance        Float?
+  zeroCancellation Float?
+}
+
+type SettlementHistory {
+  transactionReferenceId String
+  status                 TransactionStatus
+  paidBy                 TransactionPaidBy
+  transactionMode        String
+  isSettled              Boolean?
+  toBeSettled            Boolean?
+  transactionType        TransactionType
+  waiveOff               Float?
+  modifiedOn             DateTime?                 @default(now())
+  reconciliationStatus   Json?                     @default("{\"statusHistory\": []}")
+  refunds                SettlementHistoryRefunds?
+}
+
+type OrderStatusHistory {
+  status    OrderStatus?
+  createdOn DateTime
+}
+
+type CouponDetail {
+  code             String
+  couponDiscount   Float
+  type             PromoType?
+  split            CouponDiscountShare?
+  isMerchantFunded Boolean?
+}
+
+type CouponDiscountShare {
+  adl      Float
+  merchant Float
+  breakup  DiscountShareBreakup[] // bank, adl, merchant, business
+}
+
+type DiscountShareBreakup {
+  key   String
+  value Float
+}
+
+type DeviceInfo {
+  channel       ChannelName
+  userAgent     String
+  remoteAddress String
+}
+
+enum BusinessType {
+  Airport
+}
+
+enum BusinessSubType {
+  Pranaam
+  DutyFree
+  FnB
+  Retail
+  FlightBooking
+  CarParking
+  CabBooking
+  Forex
+  Holidays
+  Hotels
+  Trainman
+  GroupBooking
+}
+
+enum PromoType {
+  CASH_BACK
+  CASH_DISCOUNT
+  REWARD_POINTS
+}
+
+enum ChannelName {
+  WEB
+  IOS
+  ANDROID
+  APP
+  MWEB
+}
+
+enum CancelType {
+  Partial
+  Full
+  System // Not used now , just to support older orders
+}
+
+enum OrderStatus {
+  INITIATED
+  PENDING
+  FAILED
+  FULFILLED
+  PART_FULFILLED
+  CANCELLED
+  CANCELLATION_INITIATED
+  CONFIRMED
+  RESCHEDULED
+  UPGRADED
+  // Cab specific status
+  ON_THE_WAY // cab is on the way
+  SCHEDULED // cab is confirmed with ride later
+  // these status are used for sttaus history only
+  RESCHEDULE_INITIATED
+  UPGRADE_INITIATED
+  RESCHEDULE_PENDING
+  UPGRADE_PENDING
+  RESCHEDULE_FAILED
+  UPGRADE_FAILED
+  IN_PARKING
+  NO_SHOW
+  //duty free specific status
+  RETURN
+  PARTIALLY_BOOKED
+  BOOKED
+}
+
+enum ProcessedAs {
+  Normal
+  Auto
+  Manual
+  System
+}
+
+enum FlightSpecialFareType {
+  STUDENT
+  ARMY
+  SENIOR_CITIZEN
+  REGULAR_FARE
+}
+
+enum TransactionStatus {
+  // same is in txn schema as well
+  INITIATED
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  CANCELLED_INITIATED
+}
+
+type RootChargeRefund {
+  convenienceFee   Float?
+  insurance        Float?
+  zeroCancellation Float?
+  modifiedOn       DateTime?
+}
+
+type RootCharges {
+  convenience      RootChargeConvenience?
+  cancellation     RootChargeCancellation?
+  platform         RootChargePlatform?
+  zeroCancellation RootChargeZeroCancellation?
+  insurance        RootChargeInsurance?
+  service          RootChargeService?
+  delivery         RootChargeDelivery?
+  packaging        RootChargePackaging?
+  refunds          RootChargeRefund?
+  gst              RootChargeGST?
+  other            Float?
+  totalTax         Float?
+}
+
+type RootChargeZeroCancellation {
+  totalFee Float?
+  totalTax Float?
+}
+
+type RootChargeInsurance {
+  totalFee Float?
+  totalTax Float?
+}
+
+type RootChargeGST {
+  sgst           Float?
+  cgst           Float?
+  igst           Float?
+  currencyCode   String?
+  cgstPercentage Float?
+  sgstPercentage Float?
+  igstPercentage Float?
+}
+
+type RootChargeAdl {
+  amount Float?
+  gst    RootChargeGST?
+}
+
+type RootChargeMerchant {
+  amount Float?
+  gst    RootChargeGST?
+}
+
+type RootChargePlatform {
+  totalTax Float?
+  totalFee Float?
+}
+
+type RootChargeConvenience {
+  adl      RootChargeAdl?
+  merchant RootChargeMerchant?
+  totalFee Float?
+  totalTax Float?
+}
+
+type RootChargeService {
+  adl      RootChargeAdl?
+  merchant RootChargeMerchant?
+  totalFee Float?
+  totalTax Float?
+}
+
+type RootChargeDelivery {
+  adl      RootChargeAdl?
+  merchant RootChargeMerchant?
+  totalFee Float?
+  totalTax Float?
+}
+
+type RootChargePackaging {
+  adl      RootChargeAdl?
+  merchant RootChargeMerchant?
+  totalFee Float?
+  totalTax Float?
+}
+
+type RootChargeCancellation {
+  adl      RootChargeAdl?
+  merchant RootChargeMerchant?
+  totalFee Float?
+  totalTax Float?
+}
+
+enum TransactionType {
+  Payment
+  Refund
+}
+
+enum RescheduleType {
+  Partial
+  Full
+}
+
+// -------------------------------------Flight Booking Started-------------------------------------
+
+type Cabin {
+  name String
+  code String
+}
+
+type AirportDetails {
+  locationCode String
+  terminal     String?
+  name         String
+  city         String
+  countryCode  String?
+  country      String
+}
+
+type AirlineDetail {
+  code         String?
+  flightNumber String?
+  name         String?
+}
+
+type FlightSegment {
+  cabin                   Cabin
+  status                  String
+  departureDay            String?
+  duration                String
+  dayChange               Boolean
+  seat                    String?
+  departureAirport        AirportDetails
+  arrivalAirport          AirportDetails
+  marketingAirline        AirlineDetail
+  operatingAirline        AirlineDetail
+  equipment               Equipment[]
+  remarks                 String?
+  flightNumber            String
+  key                     String?
+  departureDate           String
+  departureTime           String
+  departureTimeZone       String?
+  departureTimeEpoch      String
+  arrivalDate             String
+  arrivalTime             String
+  arrivalTimeZone         String?
+  arrivalTimeEpoch        String
+  resBookDesigCode        String?
+  rph                     String
+  flightID                String?
+  supplier                String?
+  fareBasisCode           String?
+  validatingCarrier       String?
+  departureTimeZoneRegion String?
+  arrivalTimeZoneRegion   String?
+  cabinBaggage            String?
+  chekinBaggage           String?
+  baggageInfoNote         String?
+  isTerminalChange        Boolean?
+  isAirportChange         Boolean?
+  transitVisaMessage      String?
+}
+
+type Equipment {
+  name         String?
+  aircraftType String?
+}
+
+type OriginDestinationOption {
+  flightSegment     FlightSegment[]
+  directionInd      String
+  group             String
+  rph               String
+  technicalStops    TechnicalStops
+  fareKey           String?
+  fareRefundable    Boolean?
+  journeyCancelable Boolean?
+}
+
+type TechnicalStops {
+  stopDetail StopDetail[]
+  noOfStops  Int
+}
+
+type StopDetail {
+  name        String
+  duration    Int
+  layoverType String?
+}
+
+type AirItinerary {
+  originDestinationOption OriginDestinationOption[]
+  journeyKey              String?
+  fareGroupInformation    FlightFareGroupInfo?
+}
+
+type FareExtendedDetails {
+  amount       Float
+  perPaxAmount Float?
+}
+
+type FareDetails {
+  amount Float
+}
+
+type Tax {
+  amount       Float
+  taxCode      String
+  taxDesc      String
+  perPaxAmount Float
+}
+
+type Taxes {
+  tax          Tax[]
+  amount       Float
+  perPaxAmount Float
+}
+
+type Fee {
+  feeCode                String
+  amount                 Float
+  perPaxAmount           Float
+  feeDesc                String
+  discountedAmount       Float
+  perPaxDisCountedAmount Float
+}
+
+type Fees {
+  amount                 Float
+  perPaxAmount           Float
+  discountedAmount       Float
+  disCountedPerPaxAmount Float
+  fee                    Fee[]
+}
+
+type PassengerTypeQuantity {
+  baseFare  FareExtendedDetails
+  taxes     Taxes
+  totalFare FareExtendedDetails
+  fees      Fees
+  markups   Markups?
+  key       String?
+  code      String
+  quantity  Int
+}
+
+type Markups {
+  markup       Markup[]
+  amount       Float
+  perPaxAmount Float
+}
+
+type Markup {
+  amount       Float
+  markupCode   String
+  markypDesc   String
+  perPaxAmount Float
+}
+
+type AirItineraryPricingInfo {
+  totalFare              FareExtendedDetails
+  totalBaseFare          FareDetails?
+  totalTax               FareDetails
+  totalFee               FareDetails
+  totalMarkup            FareDetails
+  discounts              FareDetails?
+  remark                 String?
+  travelInsuranceCharges FareDetails?
+  cancellationFeeCharges FareDetails?
+  passengerTypeQuantity  PassengerTypeQuantity[]
+}
+
+type Charges {
+  cancel Float
+  amend  Float
+}
+
+type DPlusX {
+  cancel     DPlusXAmend[]
+  amend      DPlusXAmend[]
+  dPlusXNote String?
+}
+
+type DPlusXAmend {
+  range  String
+  amount Float
+}
+
+type MiniRule {
+  isRefundable     Boolean
+  note             String?
+  cleartripCharges Charges
+  airlineCharges   Charges
+  dPlusX           DPlusX
+}
+
+type PricedItinerary {
+  airItinerary            AirItinerary
+  airItineraryPricingInfo AirItineraryPricingInfo?
+  sequenceNumber          String?
+  directionInd            String?
+  sectorInd               String?
+  securityKey             SecurityKey?
+  miniRule                MiniRule?
+}
+
+type SecurityKey {
+  securityGUID String
+  key          String
+}
+
+type PromoFundingPartners {
+  partnerId         Int?
+  partnerPercentage Int?
+}
+
+type PromoCoupon {
+  promoStaticPromoCode     String?
+  offerValue               String?
+  promoType                String?
+  calculationBasedOnAmount String?
+  merchantFunded           Boolean?
+  isMerchantFunded         Boolean?
+  promoTypeValue           String?
+  isInstantDiscount        Boolean?
+  fundingPartners          PromoFundingPartners[]
+  appliedMsg               String?
+  appliedMsgShort          String?
+}
+
+type Cards {
+  cardId       String?
+  cardType     String?
+  flightNumber String?
+  directionInd String?
+}
+
+type ZeroCancellation {
+  isActive     Boolean?
+  baseAmt      Float?
+  discountAmt  Float?
+  perPaxAmt    Float?
+  perPaxDisAmt Float?
+  netAmt       Float?
+  netTax       Float?
+  directionInd String?
+  total        Float?
+}
+
+type ItineraryInfo {
+  pricedItineraries         PricedItinerary[]
+  paxInfoList               PaxInfoList[]
+  contactDetail             ContactDetail
+  itineraryId               String
+  referenceId               String?
+  loyaltyReferenceId        String?
+  pricingSummary            PricingSummary
+  zeroCancellations         ZeroCancellation[]
+  insurance                 Insurance?
+  isMultiCity               Boolean
+  gstDetails                GSTDetails?
+  itineraryMetaData         ItineraryMetaData
+  isInternational           Boolean
+  tripType                  String
+  promoCoupon               PromoCoupon?
+  cardId                    String[]
+  cards                     Cards[]
+  cardType                  String?
+  isInsuranceOpt            Boolean?
+  isZeroCancellationOpt     Boolean?
+  zeroCancellationCompleted Boolean?
+  insuranceCompleted        Boolean?
+  isSpecialFareApplicable   Boolean?
+  specialFareGroup          FlightSpecialFareType?
+}
+
+type FlightBookingTicketInfo {
+  id            Int?
+  eTicketNumber String?
+  ticketNumber  String?
+  directionInd  String?
+  rph           Int?
+  seatNumber    String?
+  bookingStatus String?
+  cabinType     String?
+  pnr           String?
+  gdspnr        String?
+  pricingId     String?
+}
+
+type LgiQuotationResponse {
+  quotationNumber   String?
+  netPremium        Float?
+  igst              Float?
+  cgst              Float?
+  sgst              Float?
+  ugst              Float?
+  stateCess         Float?
+  grossPremium      Float?
+  travelerRefNumber Int?
+  directionInd      String?
+  passengerTypeCode String?
+}
+
+type LgiPaymentResponse {
+  policyNumber      String?
+  clientCode        String?
+  policyStatus      String?
+  proposalNumber    String?
+  dcnNumber         String?
+  travelerRefNumber Int?
+  directionInd      String?
+  passengerTypeCode String?
+}
+
+type InsuranceInfo {
+  lgiQuotationResponse LgiQuotationResponse[]
+  lgiPaymentResponse   LgiPaymentResponse[]
+}
+
+type SelectedBagagge {
+  inclusiveFreeBaggage Boolean?
+  quantity             String?
+  ssrCode              String?
+  description          String?
+  price                Float?
+  displayTag           String?
+}
+
+type SelectedSeat {
+  seatNo   String?
+  rowId    String?
+  columnId String?
+  price    Float?
+  seatType String?
+}
+
+type SelectedMeal {
+  ssrCode     String?
+  description String?
+  price       Float?
+}
+
+type JourneyAncillaries {
+  directionInd    String?
+  from            String?
+  to              String?
+  selectedBagagge SelectedBagagge?
+}
+
+type SegmentAncillaries {
+  directionInd String?
+  from         String?
+  to           String?
+  rph          String?
+  selectedSeat SelectedSeat?
+  selectedMeal SelectedMeal?
+}
+
+type Ancillaries {
+  isAncillarySelected Boolean
+  journeyAncillaries  JourneyAncillaries[]
+  segmentAncillaries  SegmentAncillaries[]
+}
+
+type PaxInfoList {
+  insuranceInfo        InsuranceInfo[]
+  travelerRefNumber    Int
+  personName           PersonNameDetails
+  dateOfBirth          String?
+  nationality          String?
+  document             Document[]
+  passengerTypeCode    String
+  ticketInfo           FlightBookingTicketInfo[]
+  zeroCancellationInfo InsuranceInfo[]
+  ancillaries          Ancillaries?
+  passengerInfo        FlightPassengerInfo?
+}
+
+type FlightPassengerInfo {
+  idNumber String?
+  idType   String?
+}
+
+type FlightFareGroupInfo {
+  fareGroup            FlightSpecialFareType?
+  fareGroupName        String?
+  productClass         String?
+  fareGroupDisplayName String?
+  comboFareBasisCode   String?
+}
+
+type Document {
+  docID                String?
+  docType              String?
+  expireDate           String?
+  docIssueCountry      String?
+  docIssueDate         String?
+  docHolderNationality String?
+}
+
+type ContactDetail {
+  personName    PersonNameDetails
+  contactNumber ContactNumberDetail[]
+  email         EmailDetail[]
+  address       AddressDetail[]
+}
+
+type AddressDetail {
+  addressLine  String?
+  street       String?
+  city         AddressDetailCity
+  postalCode   String?
+  stateProv    StateProv
+  country      AddressDetailCountry
+  formattedInd String?
+  type         String?
+  isPrimary    Boolean
+  operation    String?
+}
+
+type AddressDetailCountry {
+  code        String?
+  countryName String?
+}
+
+type StateProv {
+  stateCode String?
+  stateName String?
+}
+
+type AddressDetailCity {
+  locationCode String?
+  codeContext  String?
+  cityName     String?
+}
+
+type EmailDetail {
+  emailId   String?
+  isPrimary Boolean
+  emailType String?
+}
+
+type ContactNumberDetail {
+  phoneNumber       String?
+  mobile            String?
+  phoneLocationType String?
+  countryAccessCode String?
+  areaCityCode      String?
+  extension         String?
+  isPrimary         Boolean
+}
+
+type PersonNameDetails {
+  namePrefix String?
+  firstName  String?
+  lastName   String?
+  middleName String?
+}
+
+type PricingSummary {
+  baseFare                Float
+  discount                Float
+  markup                  Float
+  taxes                   Float
+  totalFare               Float
+  convenienceFee          Float
+  ccfFee                  Float
+  discountedCCFFee        Float
+  travelInsuranceFare     Float?
+  discountedZeroCancelFee Float?
+  loyaltyAmount           Float?
+  zeroCancellationFee     Float?
+  seatFare                Float?
+  baggageFare             Float?
+  mealFare                Float?
+  initialOnwardPrice      Float?
+  initialReturnPrice      Float?
+}
+
+type FlightQuotationDetail {
+  quotationNumber   String?
+  netPremium        Float?
+  igst              Float?
+  cgst              Float?
+  sgst              Float?
+  ugst              Float?
+  stateCess         Float?
+  grossPremium      Float?
+  travelerRefNumber Float?
+  directionInd      String?
+  passengerTypeCode String?
+}
+
+type FlightPaymentDetail {
+  policyNumber      String?
+  clientCode        String?
+  policyStatus      String?
+  proposalNumber    String?
+  dcnNumber         String?
+  travelerRefNumber Int?
+  directionInd      String?
+  passengerTypeCode String?
+}
+
+type Insurance {
+  insured          Boolean?
+  baseAmt          Float?
+  discountAmt      Float?
+  perPaxAmt        Float?
+  perPaxDisAmt     Float?
+  netAmt           Float?
+  netInsuranceTax  Float?
+  quotationDetails FlightQuotationDetail[]
+  paymentDetails   FlightPaymentDetail[]
+}
+
+type GSTDetails {
+  gstHolderAddress   String
+  gstHolderCity      String?
+  gstHolderCountry   String?
+  gstHolderName      String
+  gstHolderStateCode String
+  gstHolderStateName String
+  gstHolderStreet    String?
+  gstNumber          String
+  gstHolderPin       String?
+}
+
+type ItineraryMetaData {
+  minLastNameLength              Int?
+  maxPaxNameLength               Int?
+  isPassportRequired             Boolean?               @default(false)
+  isDateOfBirthRequired          Boolean?               @default(false)
+  isNationalityRequired          Boolean?               @default(false)
+  isInsuranceRequired            Boolean?               @default(false)
+  isPassportExpiryRequired       Boolean?               @default(false)
+  isPassportIssueRequired        Boolean?               @default(false)
+  isPassportIssueCountryRequired Boolean?               @default(false)
+  isZeroCancellationRequired     Boolean?               @default(false)
+  isIdProofRequired              Boolean?               @default(false)
+  idProofList                    String[]
+  specialFareType                FlightSpecialFareType?
+}
+
+type AncillaryFee {
+  seatFare    Float?
+  mealFare    Float?
+  baggageFare Float?
+}
+
+type PricingBreakup {
+  pricingId        String
+  baseFare         Float
+  couponCashback   Float
+  totalTaxes       Float
+  convenienceFees  Float
+  paxStatus        String
+  ccfFee           Float
+  discountedCCFFee Float
+  ancillaryFee     AncillaryFee?
+}
+
+type RefundBreakupComponents {
+  grossAmount     Float
+  couponCashback  Float?
+  airlineCharges  Float
+  partnerCharges  Float
+  convenienceFees Float
+  otherCharges    Float
+}
+
+type RefundBreakup {
+  total                Float
+  refundDate           Float?
+  canceTtxnId          Float
+  reason               String?
+  paxInfos             Int[]
+  refundComponents     RefundBreakupComponents
+  refundBreakupDetails RefundBreakupDetails?
+}
+
+type PaymentModesLoyaltyPoints {
+  pendingRewardPoints Float
+  earnedRewardPoints  Float
+  burnedRewardPoints  Float
+  // isFullfilled        Boolean
+}
+
+type PaymentModes {
+  transactionMode String
+  transactionCode String
+  transactionType String
+  amount          Float
+  status          String
+  loyaltyPoints   PaymentModesLoyaltyPoints
+}
+
+type BookingPaymentBreakup {
+  loyaltyAmount    Float?
+  total            Float
+  partnerPaymentId String?
+  pricingBreakup   PricingBreakup[]
+}
+
+type RefundBreakupDetails {
+  bank            Float?
+  loyalty         Float?
+  promo           Float?
+  waiveOff        Float?
+  convenienceFee  Float?
+  insuranceAmount Float?
+  cancelationFee  Float?
+  mealFare        Float?
+  seatFare        Float?
+  baggageFare     Float?
+}
+
+type TripInfoPaymentDetails {
+  currency              String?
+  couponCode            String?
+  bookingPaymentBreakup BookingPaymentBreakup
+  paymentModes          PaymentModes[]
+  refundBreakup         RefundBreakup[]
+  ccfFee                Float?
+  discountedCCFFee      Float?
+  travelInsuranceFare   Float?
+  zeroCancellationFee   Float?
+  refundBreakupDetails  RefundBreakupDetails?
+}
+
+type TripInfo {
+  tripId                  String
+  bookingStatus           CtBookingStatus?
+  bookedDate              String?
+  bookingType             String?
+  isInternational         Boolean
+  tripType                String
+  contactDetail           ContactDetail
+  pricedItineraries       PricedItinerary[]
+  paxInfoList             PaxInfoList[]
+  isInvoiceDownload       Boolean?
+  isEmailItinerary        Boolean?
+  cardType                String?
+  orderStatus             String?
+  paymentDetails          TripInfoPaymentDetails?
+  isZeroCancellation      Boolean?
+  cancellationClaimURL    String?
+  isZeroConvenienceActive Boolean?
+  cancellationClaimDate   String?
+  cancellationClaimActive Boolean?
+  isInfantCancelOnly      Boolean?
+}
+
+type InvoiceInfo {
+  invoiceNumber String?
+  igst          Float?
+  sgst          Float?
+  cgst          Float?
+  ccfFee        Float?
+}
+
+type FlightIrnDetails {
+  irnNumber String?
+  qrCode    String?
+  ackNo     String?
+  ackDate   String?
+  message   String?
+}
+
+type FlightInvoiceDetails {
+  invoiceNumber         String
+  stateName             String
+  invoiceType           String
+  customerType          String
+  iGST                  Float?
+  sGST                  Float?
+  cGST                  Float?
+  ccfFee                Float?
+  invoiceGenerated      Boolean
+  invoiceEmailDelivered Boolean
+  irnDetails            FlightIrnDetails?
+  baseAmount            Float?
+  stateCode             String?
+}
+
+type FlightBookingDetail {
+  itineraryInfo   ItineraryInfo
+  tripInfo        TripInfo?
+  refundHistory   FlightRefundHistory[]
+  statusHistory   FlightStatusHistory[]
+  invoiceInfo     InvoiceInfo?
+  invoiceDetails  FlightInvoiceDetails[]
+  metaPartnerName String?
+  source          String?
+}
+
+type FlightRefundHistory {
+  refundID     String
+  status       String
+  date         DateTime
+  refundAmount Float
+  refundType   String?
+}
+
+type FlightStatusHistory {
+  status String
+  date   DateTime
+}
+
+enum CtBookingStatus {
+  Z // Confirmed
+  PF // Failed
+  F // Failed
+  P // Confirmed
+  H // Confirmed
+  Q // Cancelled
+  K // Refunded
+  PQ // Partially Cancelled
+  PZ // Partially Booked
+  PK // Partially Reschedule
+  A // Awaited pnr
+  PI // Payment initiated, considered as failed
+}
+
+// -------------------------------------Flight Booking Ended-------------------------------------
+// ------------------------------------- CT Hotels Started ---------------------------------------------
+
+type HotelDetail {
+  totalAmount        HotelTotalAmount
+  finalAmount        HotelFinalAmount
+  bookingDate        HotelBookingDates?
+  priceDetails       HotelPriceDetails?
+  adults             Int?
+  children           HotelChild[]
+  rooms              Int?
+  customerInfo       HotelCustomerInfo?
+  hotelId            String?
+  hotelName          String?
+  hotelImage         String?
+  hotelRating        String?
+  bookingCode        String?
+  roomTypeCode       String?
+  sellingCountry     String?
+  billingDetail      HotelBillingDetails?
+  hotelLocationInfo  HotelLocationInfo?
+  roomType           HotelRoomType?
+  checkInDayTime     String?
+  checkOutDayTime    String?
+  inclusions         String[]
+  specialRequest     String?
+  refundable         String?
+  cancellationPolicy String?
+  refundInfo         HotelRefundInfo?
+  dayNightCount      Int?
+  childs             Int?
+  cancelReason       String?
+  invoiceDetails     HotelGstInvoiceDetails[]
+  promoCoupon        HotelPromoCoupon?
+  isInvoiceAvailable Boolean?
+  imageOriginalURL   String?
+}
+
+type HotelPromoCoupon {
+  promoCode                String?
+  offerValue               Float?
+  promoValueType           String?
+  calculationBasedOnAmount String?
+  fundingPartners          FundingPartners[]
+  merchantFunded           Boolean?
+  isInstantDiscount        Boolean?
+}
+
+type HotelIRNDetails {
+  irnNumber String?
+  qrCode    String?
+  ackNo     String?
+  ackDate   String?
+  message   String?
+}
+
+type HotelGstInvoiceDetails {
+  invoiceNumber         String?
+  stateCode             String?
+  stateName             String?
+  iGST                  Float?
+  cGST                  Float?
+  sGST                  Float?
+  ccfFee                Float?
+  invoiceType           String?
+  customerType          String?
+  invoiceGenerated      Boolean?
+  invoiceEmailDelivered Boolean?
+  irnDetails            HotelIRNDetails?
+}
+
+type HotelRefundInfo {
+  amountPaid            Float?
+  hotelResevationCharge Float?
+  couponDiscount        Float?
+  rewardsPoint          Float?
+  convenienceFee        Float?
+  priceDetails          HotelPriceDetails?
+  deduction             HotelRefundInfoDeduction?
+  refundSummary         HotelRefundSummary?
+}
+
+type HotelRefundSummary {
+  refundRewardsPoint Float?
+  refund             Float?
+  totalRefund        Float?
+  userRefund         Float?
+}
+
+type HotelRefundInfoDeduction {
+  hotelCancelCharge Float?
+  convenienceFee    Float?
+  couponDiscount    Float?
+  totalDeduction    Float?
+}
+
+type HotelRoomType {
+  roomTypeId      Int?
+  roomTypeCode    String?
+  roomDescription String?
+  roomTypeName    String?
+}
+
+type HotelLocationInfo {
+  cityId    Int?
+  street    String?
+  latitude  String?
+  longitude String?
+  city      String?
+  state     String?
+  country   String?
+  zip       String?
+  address   String?
+}
+
+type HotelBillingDetails {
+  address     String?
+  country     String?
+  pinCode     String?
+  state       String?
+  city        String?
+  companyName String?
+  gstNumber   String?
+}
+
+type HotelTotalAmount {
+  amount   Float?
+  currency String?
+}
+
+type HotelFinalAmount {
+  amount   Float?
+  currency String?
+}
+
+type HotelBookingDates {
+  checkIn  String?
+  checkOut String?
+}
+
+type HotelPriceDetails {
+  baseFare    Float?
+  serviceFees Float?
+  taxes       Float?
+  discount    Float?
+  ctDiscount  Float?
+  totalAmount Float?
+  IGST        Float?
+  CGST        Float?
+  SGST        Float?
+}
+
+type HotelChild {
+  age Int?
+}
+
+type HotelCustomerInfo {
+  title         String?
+  first_name    String?
+  last_name     String?
+  email         String?
+  phoneNumber   Int?
+  panNumber     String?
+  countryCode   String?
+  whatsappOptIn Boolean?
+}
+
+// -------------------------------------Hotel Booking Ended-------------------------------------
+//--------------------------------------Travel Packages Started -----------------------------------
+
+type HolidaysDetail {
+  id              String?
+  customerId      String?
+  packageTypeId   String?
+  packageId       String?
+  propertyId      String?
+  propertyInfo    HolidaysPropertyInfo
+  packageInfo     HolidaysPackageInfo
+  packageTypeInfo HolidaysPackageTypeInfo
+  totalAmount     HolidaysTotalAmount
+  finalAmount     HolidaysFinalAmount
+  bookingDate     HolidaysBookingDates?
+  priceDetails    HolidaysPriceDetails?
+  adults          HolidaysAdults[]
+  children        HolidaysChild[]
+  customerInfo    HolidaysCustomerInfo?
+  isOrderPushed   Boolean? //fixme:// wont be available in cart
+  statusComment   String?
+
+  gstDetails     HolidaysGstDetails?
+  billingDetails HolidaysBillingDetails?
+  primaryGuest   HolidaysAdults?
+  isGst          Boolean?
+}
+
+type HolidaysBillingDetails {
+  address String?
+
+  country String?
+
+  city String?
+
+  state String?
+
+  pincode String?
+}
+
+type HolidaysGstDetails {
+  gstNumber String?
+
+  companyName String?
+
+  companyAddress String?
+
+  country String?
+
+  city String?
+
+  state String?
+
+  pincode String?
+}
+
+type HolidaysAdults {
+  title       String?
+  name        String?
+  ISDCode     String?
+  phoneNumber String?
+  email       String?
+  panNumber   String?
+}
+
+type HolidaysChild {
+  title String?
+  name  String?
+  dob   DateTime?
+}
+
+type HolidaysCustomerInfo {
+  name          String?
+  family_name   String?
+  given_name    String?
+  nickname      String?
+  locale        String?
+  updated_at    String?
+  email         String?
+  phoneNumber   String?
+  sub           String?
+  whatsappOptIn Boolean?
+}
+
+type HolidaysPriceDetails {
+  baseFare    Float?
+  serviceFees Float?
+  taxes       Float?
+  discount    Float?
+  totalAmount Float?
+  loyalty     Int?
+}
+
+type HolidaysBookingDates {
+  checkIn      DateTime?
+  checkOut     DateTime?
+  reqbookingOn DateTime?
+}
+
+type HolidaysPackageTypeInfo {
+  id         String?
+  redemEnd   DateTime?
+  redemStart DateTime?
+  listEnd    DateTime?
+  listStart  DateTime?
+  childs     Int?
+  adults     Int?
+  day        Int?
+  night      Int?
+  childAge   String?
+
+  agentMrp      Float?
+  markUpPercent Float?
+  markUpType    String?
+  markUp        Float?
+  mrp           Float?
+
+  offer HolidaysOffer?
+}
+
+type HolidaysOffer {
+  id             String?
+  offerTitle     String?
+  offerDesc      String?
+  offerStartedOn DateTime?
+  offerEndedOn   DateTime?
+  status         String?
+  offerType      String?
+  discountValue  Float?
+}
+
+type HolidaysPropertyInfo {
+  id                String?
+  propName          String?
+  propAddress       Address?
+  isInternational   Boolean?
+  heroImage         String?
+  heroImageUrl      String?
+  geoLocation       GeoLocation?
+  tnc               String?
+  refundType        String?
+  cancelationPolicy String?
+  refundPolicy      RefundPolicy[]
+  amenities         Amenities[]
+  rating            String?
+}
+
+type Amenities {
+  id         String?
+  name       String?
+  status     String?
+  isProperty Boolean?
+}
+
+type RefundPolicy {
+  cancelledPrior String?
+  refund         Float?
+}
+
+type GeoLocation {
+  type        String?
+  coordinates Float[]
+}
+
+type Address {
+  add1    String?
+  add2    String?
+  pinCode String?
+  city    String?
+  state   String?
+  country String?
+}
+
+type HolidaysPackageInfo {
+  packageName   String?
+  id            String?
+  perks         String?
+  isRescheduled Boolean?
+}
+
+type HolidaysTotalAmount {
+  amount   Float
+  currency String
+}
+
+type HolidaysFinalAmount {
+  amount   Float
+  currency String
+}
+
+//--------------------------------------Travel Packages Ended--------------------------------
+// -------------------------------------DutyFree Started-------------------------------------
+type DutyFreeDetail {
+  id                      String?
+  customerId              String
+  airportCode             String
+  itemDetails             DutyFreeItemDetail[]
+  passengerDetail         DutyFreePassengerDetail[]
+  promoCoupon             DutyFreePromoCoupon?
+  totalAmount             DutyFreeAmount?
+  finalAmount             DutyFreeAmount?
+  preOrderDiscount        DutyFreeAmountExtended?
+  unitPriceResponse       DutyFreeAmount?
+  discountPrice           DutyFreeAmount?
+  preOrderDiscountBreakup DutyFreePreOrderDiscountBreakup[]
+  loyaltyPotentialPoint   Int?
+  collectionPoint         String?
+  store                   String?
+  isOrderPushed           Boolean? // wont be available in cart
+  carnivalOffer           DutyFreeCarnivalOffer? // wont be available in cart only available in place order
+  cancelReason            String?
+}
+
+type DutyFreeCarnivalOffer {
+  isCarnivalApplicable     Boolean?
+  isLuckyVoucherApplicable Boolean?
+  isFreebieApplicable      Boolean?
+  luckyVoucherCount        Int?
+  offerApplliedDesc        String[]
+}
+
+type DutyFreePromoCoupon {
+  promoCode                String?
+  offerValue               Float?
+  promoValueType           String?
+  calculationBasedOnAmount String?
+  fundingPartners          FundingPartners[]
+  merchantFunded           Boolean?
+  isInstantDiscount        Boolean?
+}
+
+type FundingPartners {
+  partnerId         Int?
+  partnerPercentage Float?
+}
+
+type DutyFreeAmount {
+  amount Float
+}
+
+type DutyFreePreOrderDiscountBreakup {
+  material String
+  amount   Float?
+}
+
+type DutyFreeAmountExtended {
+  amount             Float
+  percentageDiscount Float
+}
+
+type DutyFreeItemDetailPromotion {
+  promotionType Int
+  promotionQty  Int
+  promotionCode String
+  offer         Float
+  offerText     String?
+}
+
+type DutyFreePassengerDetail {
+  customerId             String?
+  customerName           String
+  passportNumber         String
+  customerPassportExpiry String
+  flightNo               String
+  flightTime             String?
+  pickupDate             String
+  pickupTime             String
+  mobile                 String
+  emailId                String
+  countryCode            String?
+  countryName            String
+  customerDOB            String
+  countryDialCode        String
+  isPassenger            Boolean?
+  isAssistance           Boolean?
+  assistanceCode         String?
+}
+
+type DutyFreeItemDetail {
+  bookingId            String?
+  storeType            String
+  materialName         String?
+  categoryName         String?
+  subCategoryName      String?
+  brandName            String?
+  skuCode              String
+  skuName              String
+  quantity             Int
+  unitPrice            Float
+  totalPrice           Float
+  discountedPrice      Float
+  productImage         String?
+  promotion            DutyFreeItemDetailPromotion?
+  skuSize              String?
+  skuUnit              String?
+  skuStatus            String?
+  storeCode            String
+  isExclusive          Boolean?
+  loyaltyOffer         String?
+  finalUnitPrice       Float?
+  totalDiscountedPrice Float?
+  totalUnitPrice       Float?
+  preOrderDiscount     Float?
+  inStock              Boolean?
+  overheadStock        Int?
+  availableStock       Int?
+  potentialPromoText   String?
+  itemStatus           DutyFreeItemStatus?
+  merchantDiscount     Float?                       @default(0)
+  isItemFree           Boolean?                     @default(false)
+  isCombo              Boolean?
+  skuId                Int?
+}
+
+type DutyFreeItemStatus {
+  statusHistory DutyFreeStatusHistory[]
+}
+
+type DutyFreeStatusHistory {
+  status     String?
+  modifiedOn DateTime
+}
+
+// -------------------------------------DutyFree Ended-------------------------------------
+// -------------------------------------Pranaam Started-------------------------------------
+type PranaamPackageDetail {
+  packageId                  Int
+  name                       String
+  shortDesc                  String?
+  packageImageURL            String?
+  packageNumber              String
+  adultCount                 Int?
+  childCount                 Int?
+  infantCount                Int?
+  adultPrice                 Float?
+  childPrice                 Float?
+  infantPrice                Float?
+  isGroupPackage             Boolean?
+  totalPrice                 Float?
+  createdOn                  DateTime?
+  updateOn                   DateTime?
+  userId                     String
+  currency                   String?
+  pricingInfo                PranaamPricingInfo?
+  originalPricingInfo        PranaamPricingInfo?
+  oldPricingInfo             PranaamPricingInfo?
+  upgradedPricingInfo        PranaamPricingInfo?
+  rescheduledPricingInfo     PranaamPricingInfo?
+  freeAllowedPorter          Int
+  maxAllowedBaggagePerPorter Int
+  promoType                  String?
+  rescheduleCharges          RescheduleCharges?
+}
+
+type RescheduleCharges {
+  originalBookingId           Int?
+  isReschedule                Boolean
+  rescheduleAdultCharges      Float?
+  rescheduleChildCharges      Float?
+  rescheduleInfantCharges     Float?
+  rescheduleAdultChargesCGST  Float?
+  rescheduleChildChargesCGST  Float?
+  rescheduleInfantChargesCGST Float?
+  rescheduleAdultChargesSGST  Float?
+  rescheduleChildChargesSGST  Float?
+  rescheduleInfantChargesSGST Float?
+}
+
+type PranaamTripStatusHistory {
+  status      String
+  modifiedOn  DateTime
+  orderStatus String?
+}
+
+type PranaamTripStatus {
+  statusHistory PranaamTripStatusHistory[]
+}
+
+type PranaamTripDetails {
+  tripBookingNumber                 String?
+  tripType                          String?
+  travelSectorId                    Int?
+  travelSector                      String?
+  serviceTypeId                     Int?
+  serviceType                       String?
+  originAirportId                   Int?
+  originAirport                     String?
+  destinationAirportId              Int?
+  destinationAirport                String?
+  serviceAirportId                  Int?
+  serviceAirport                    String?
+  serviceAirportName                String?
+  businessUnitId                    Int?
+  serviceDateTime                   String
+  flightName                        String
+  flightNumber                      String
+  flightTerminal                    String?
+  flightDate                        String
+  flightTime                        String?
+  transitDestRoundTripSecOrigin     Int?
+  transitRoundTripSecFlightName     String?
+  transitRoundTripSecFlightNumber   Int?
+  transitRoundTripSecFlightTerminal String?
+  transitRoundTripSecFlightDate     String?
+  transitRoundTripSecFlightTime     String?
+  roundTripSecServiceDateTime       String?
+  userId                            String
+  tripEndBy                         String?
+
+  tripStatus PranaamTripStatus
+}
+
+type PranaamTraveller {
+  salutationId           Int
+  salutationText         String?
+  firstName              String
+  lastName               String
+  age                    Int
+  passengerTypeId        Int
+  passengerTypeCode      String?
+  passengerTypeName      String?
+  spocPhone              String
+  nationalityCountryId   Int
+  nationalityCountryName String?
+  flyingClassId          Int
+  flyingClassName        String?
+  passengerId            Int?
+  passportNumber         String?
+  passengerStatus        String?
+  passengerStatusId      Int?
+  itemStatus             PranaamTripStatus
+}
+
+type PranaamBillingGstInfo {
+  name         String?
+  mobileNumber String?
+  email        String?
+  address      String?
+  countryId    Int?
+  pinCode      Int?
+  cityId       Int?
+  stateId      Int?
+  gstNumber    String?
+}
+
+type PranaamBillingInfo {
+  salutationId    Int
+  firstName       String
+  lastName        String
+  countryDialCode String
+  mobile          String
+  birthDate       String
+  email           String
+  addressLine1    String
+  addressLine2    String
+  countryName     String
+  cityName        String
+  stateName       String
+  countryId       Int
+  pincode         String
+  cityId          Int
+  stateId         Int
+  whatsappOptIn   Boolean?
+  billingGSTIN    PranaamBillingGstInfo?
+}
+
+type PranaamPlaCardInfo {
+  salutationId       Int
+  firstName          String
+  lastName           String
+  countryDialCode    String
+  mobileNumber       String?
+  specialInstruction String?
+  porterName         String?
+  baggageCount       Int?
+}
+
+type AddOnService {
+  serviceName        String
+  serviceDescription String
+  unitPrice          Float
+  quantity           Int
+  userId             String
+  packageId          Int
+  addOnServiceID     Int
+  addOnImage         String?
+  totalPrice         Float
+  cgst               Float?
+  sgst               Float?
+  totalAddOnTax      Float?
+  totalBaseFare      Float?
+}
+
+type PranaamRefundHistory {
+  refundID     String?
+  Status       String?
+  Date         DateTime?
+  RefundAmount Float?
+}
+
+type PranaamOrderRefund {
+  Status                   Boolean?
+  Date                     DateTime?
+  RefundAmount             Float?
+  RefundBaseAmount         Float?
+  RefundSGSTAmount         Float?
+  RefundCGSTAmount         Float?
+  RefundIGSTAmount         Float?
+  RefundSGSTRate           Float?
+  RefundCGSTRate           Float?
+  RefundIGSTRate           Float?
+  ReferenceInvoiceNumber   String?
+  CreditNoteNo             String?
+  RefundStatus             Boolean?
+  Remarks                  String?
+  TotalCancellationCharges Float?
+  CancellationBaseAmount   Float?
+  CancellationCGSTAmount   Float?
+  CancellationSGSTAmount   Float?
+  CancellationIGSTAmount   Float?
+  CancellationCGSTRate     Float?
+  CancellationSGSTRate     Float?
+  CancellationIGSTRate     Float?
+}
+
+type PranaamDetail {
+  bookingId                      Int?
+  pranaamBookingType             String?
+  refBookingId                   Int?
+  invoiceNo                      String?
+  bookingInvoiceNumber           String?
+  upgradeBookingInvoiceNumber    String?
+  rescheduleBookingInvoiceNumber String?
+  packageDetail                  PranaamPackageDetail?
+  oldPackageDetail               PranaamPackageDetail?
+  tripDetails                    PranaamTripDetails
+  oldTripDetails                 PranaamTripDetails?
+  roundTripDetail                PranaamTripDetails?
+  oldRoundTripDetail             PranaamTripDetails?
+  addOnServices                  AddOnService[]
+  travelers                      PranaamTraveller[]
+  billingInfo                    PranaamBillingInfo?
+  placardInfo                    PranaamPlaCardInfo?
+  refundHistory                  PranaamRefundHistory[]
+  orderRefund                    PranaamOrderRefund[]
+  dqr                            String?
+  newDQR                         String?
+  standaloneProductDetails       StandaloneProductDetails?
+  isUpgradable                   Boolean
+  isRescheduleDeparture          Boolean?
+  isRescheduleArrival            Boolean?
+  totalFare                      PranaamPricingInfoAmount?
+  totalTax                       PranaamRootTotalTax?
+}
+
+type StandaloneProductDetails {
+  pricingInfo PranaamPricingInfo
+  id          Int
+  name        String
+  description String
+  itemCount   Int
+  imageUrl    String?
+}
+
+type PranaamPricingInfoAmount {
+  amount   Float?
+  baseFare Float?
+}
+
+type PranaamPricingInfoGst {
+  amount     Float
+  percentage Float
+}
+
+type PranaamPricingInfoTax {
+  amount      Float?
+  sgst        PranaamPricingInfoGst?
+  cgst        PranaamPricingInfoGst?
+  cgstPercent Int?
+  sgstPercent Int?
+}
+
+type PranaamRootTotalTax {
+  amount      Float?
+  cgst        Float?
+  sgst        Float?
+  cgstPercent Int?
+  sgstPercent Int?
+}
+
+type PranaamPassengerTypeQuantityFare {
+  perPaxAmount Float
+  amount       Float
+}
+
+type PranaamPassengerTypeQuantityBaseFare {
+  amount       Float?
+  perPaxAmount Float?
+}
+
+type PranaamPassengerTypeQuantityTax {
+  amount       Float
+  taxCode      String
+  taxDesc      String
+  perPaxAmount Float
+  taxPercent   Float
+}
+
+type PranaamPassengerTypeQuantityTaxes {
+  tax          PranaamPassengerTypeQuantityTax[]
+  amount       Float?
+  perPaxAmount Float
+}
+
+type PranaamPassengerTypeQuantityTotalFare {
+  perPaxAmount Float?
+  amount       Float?
+}
+
+type PranaamPassengerTypeQuantityExpressFare {
+  perPaxAmount Float?
+  amount       Float?
+}
+
+type PranaamPassengerTypeQuantity {
+  baseFare    PranaamPassengerTypeQuantityBaseFare?
+  taxes       PranaamPassengerTypeQuantityTaxes?
+  totalFare   PranaamPassengerTypeQuantityTotalFare?
+  expressFare PranaamPassengerTypeQuantityExpressFare?
+  code        String?
+  quantity    Int?
+}
+
+type PranaamPricingInfo {
+  totalFare                         PranaamPricingInfoAmount?
+  totalBaseFare                     PranaamPricingInfoAmount?
+  totalTax                          PranaamPricingInfoTax?
+  totalExpressFare                  PranaamPricingInfoAmount?
+  discountCouponDetails             PranaamDiscountCouponDetails?
+  currentLoyaltyPoints              String?
+  passengerTypeQuantity             PranaamPassengerTypeQuantity[]
+  discountCouponDetailsFromPromoApi DiscountCouponDetailsFromPromoApi?
+}
+
+type DiscountCouponDetailsFromPromoApi {
+  promoCode                String?
+  promoOfferValue          Float?
+  promoType                String?
+  calculationBasedOnAmount String?
+  merchantFunded           Boolean?
+  isInstantDiscount        Boolean?
+  fundingPartners          PromoFundingPartners[]
+  appliedMsg               String?
+  appliedMsgShort          String?
+}
+
+type PranaamDiscountCouponDetails {
+  couponId                Int?
+  couponCode              String?
+  couponDiscountAmount    Float?
+  isMerchantFunded        Boolean?
+  pcmPercentage           Int?
+  promoType               String?
+  rewardAndCashBackAmount Float?
+}
+
+// -------------------------------------Pranaam Ended-------------------------------------
+// -------------------------------------Cab Started-------------------------------------
+
+type CabPickup {
+  tripDateTime          Int
+  locationCode          String
+  cityCode              String?
+  cityName              String?
+  latitude              String?
+  longitude             String?
+  driverLatitude        String?
+  driverLongitude       String?
+  placeId               String?
+  driverReachedDateTime Int
+  isDriverReached       Boolean
+}
+
+type CabDrop {
+  tripDateTime    Int
+  locationCode    String
+  cityCode        String?
+  cityName        String?
+  latitude        String?
+  longitude       String?
+  driverLatitude  String?
+  driverLongitude String?
+  placeId         String?
+}
+
+type CabTripInfo {
+  isFromAirport Boolean?
+  airportName   String
+  terminal      String
+  bookingDate   Int
+  tripType      String
+  isRideNow     Boolean
+  airportCode   String
+  terminalGate  String
+  isShowFCTimer Boolean?
+}
+
+type CabPriceLoyaltyInfo {
+  pendingRewardPoints Int
+  earnedRewardPoints  Int
+  burnedRewardPoints  Int
+}
+
+type CabPriceTax {
+  taxCode String
+  amount  Float
+}
+
+type CabPriceTaxes {
+  tax CabPriceTax[]
+}
+
+type CabExtraCharges {
+  extraKmFare        Float?
+  waitingCharge      Float?
+  totalChargesAmount Float?
+  taxes              CabPriceTaxes?
+}
+
+type CabPriceInfo {
+  paymentMode       String?
+  basePrice         Float
+  taxAmount         Float
+  totalAmount       Float
+  discountPrice     Float
+  loyalty           Int?
+  loyaltyPercentage Float?
+  referenceId       String?
+  loyaltyPoints     CabPriceLoyaltyInfo?
+  taxes             CabPriceTaxes
+  extraCharges      CabExtraCharges?
+}
+
+type CabVehicleDetails {
+  vehicleCategoryID    Int
+  vehicleTypeID        String
+  vehicleType          String
+  vehicleNumber        String?
+  vehicleImage         String?
+  vehicleKey           String?
+  adlCabCategory       String?
+  rideDetailSharedTime String?
+  bookingSource        String?
+}
+
+type CabServiceType {
+  serviceName String?
+}
+
+type CabSecurityKey {
+  serviceType      String?
+  searchId         String?
+  secretID         String?
+  secretKey        String?
+  providerCode     String?
+  providerName     String?
+  providerImage    String?
+  isGSTEnable      Boolean?
+  adlProviderImage String?
+}
+
+type CabPromoDetails {
+  promoCode                String?
+  promoValue               Float
+  promoType                String?
+  calculationBasedOnAmount String?
+  merchantFunded           Boolean?
+  isInstantDiscount        Boolean?
+  fundingPartners          PromoFundingPartners[]
+  appliedMsg               String?
+  appliedMsgShort          String?
+}
+
+type CabKioskInfo {
+  boardingMsg       String?
+  contact           String?
+  kioskInstruction  String?
+  landmark          String?
+  locateInstruction String?
+  locationDetail    String?
+  latitude          String?
+  longitude         String?
+  name              String?
+  navigateMsg       String?
+  thumb             String?
+}
+
+type CabBookingInfo {
+  bookingID          String
+  providerBookingID  String?
+  bookingDate        Int
+  status             CabBookingStatus?
+  otp                String?
+  carNumber          String?
+  carName            String?
+  carModelName       String?
+  driverName         String?
+  driverPhone        String?
+  isInvoiceDownload  Boolean
+  isAutoCancelled    Boolean
+  kioskInfo          CabKioskInfo?
+  isFreeCancellation Boolean?
+  isInvoiceAllow     Boolean?
+  b2BInvoiceEnabled  Boolean?
+  isVoucherDownload  Boolean?
+}
+
+type CabPaymentDetails {
+  bank    Float
+  loyalty Float
+  promo   Float
+}
+
+type CabRefundDetail {
+  paymentMode     String?
+  amount          Float?
+  status          String?
+  rrn             String?
+  transactionDate DateTime?
+}
+
+type CabRefundInfo {
+  referenceId        String?
+  refundDetails      CabRefundDetail[]
+  paymentDetails     CabPaymentDetails?
+  totalPaid          Float?
+  totalRefund        Float?
+  promoRefund        Float?
+  loyaltyRefund      Float
+  bankRefund         Float
+  cancelationCharges Float?
+}
+
+type CabBillingAddressCity {
+  locationCode String?
+  codeContext  String?
+  cityName     String?
+}
+
+type CabBillingAddressStateProv {
+  stateCode String?
+  stateName String?
+}
+
+type CabBillingAddressCountry {
+  code        String?
+  countryName String?
+}
+
+type CabBillingAddress {
+  addressLine  String?
+  street       String?
+  city         CabBillingAddressCity?
+  postalCode   String?
+  stateProv    CabBillingAddressStateProv?
+  country      CabBillingAddressCountry?
+  formattedInd String?
+  type         String?
+  isPrimary    Boolean?
+  operation    String?
+}
+
+type CabContactDetail {
+  gstNumber      String?
+  companyName    String?
+  address        String?
+  category       String?
+  firstName      String?
+  lastName       String?
+  countryCode    String?
+  mobileNumber   String?
+  email          String?
+  billingAddress CabBillingAddress[]
+}
+
+type CabUserInfo {
+  name        String?
+  email       String?
+  phoneNumber String
+  countryCode String?
+  firstName   String?
+}
+
+type CabInfo {
+  isAC             Boolean?
+  maxCapacity      Int?
+  fuelType         String?
+  extraKmPrice     String?
+  kmDistance       String?
+  duration         String?
+  cancellationKey  String?
+  luggage          String?
+  isKiosk          Boolean?
+  cancellationText String?
+  waitingTime      Int?
+  waitingAmount    Float?
+  freeWaitingTime  Int?
+}
+
+type CabSupplier {
+  supplierId String?
+  name       String?
+  contact    String?
+  logo       String?
+}
+
+type CabIRNDetails {
+  irnNumber String?
+  qrCode    String?
+  ackNo     String?
+  ackDate   String?
+}
+
+type CabGstInvoiceDetails {
+  invoiceNumber         String?
+  stateCode             String?
+  stateName             String?
+  iGST                  Float?
+  cGST                  Float?
+  sGST                  Float?
+  ccfFee                Float?
+  invoiceType           String?
+  customerType          String?
+  invoiceGenerated      Boolean?
+  baseAmount            Float?
+  invoiceEmailDelivered Boolean?
+  irnDetails            CabIRNDetails?
+}
+
+type CabDetail {
+  pickup            CabPickup
+  drop              CabDrop
+  tripInfo          CabTripInfo
+  priceInfo         CabPriceInfo
+  vehicleDetails    CabVehicleDetails
+  secretKey         CabSecurityKey
+  promoDetails      CabPromoDetails
+  bookingInfo       CabBookingInfo
+  refundInfo        CabRefundInfo?
+  contactDetail     CabContactDetail
+  cabInfo           CabInfo?
+  userInfo          CabUserInfo
+  supplier          CabSupplier?
+  gstInvoiceDetails CabGstInvoiceDetails[]
+}
+
+enum CabBookingStatus {
+  Confirmed //IN CASE RIDE NOW 
+  Scheduled // IN CASE LATER RIDE
+  Failed // IN CASE BOOKING FAILED
+  Pending // IN CASE BOOKING FAILED AND PEDNING 
+  OnTheWay // DRIVER REACHED ON THE LOCATION AND TRIP STARTED
+  Completed // IF TRIP COMPLETED
+  Cancelled //// IF TRIP CANCELLED
+}
+
+// -------------------------------------Cab Ended-------------------------------------
+// -------------------------------------Forex Started-------------------------------------
+type ForexDetail {
+  cartId            String
+  sessionTime       String
+  partnerId         ForexPartnerId
+  city              String?
+  customerInfo      ForexCustomerInfo
+  productItemsInfo  ForexProductItemsInfo[]
+  priceInfo         ForexPriceInfo
+  promoInfo         ForexPromoInfo? // TODO:: need product confirmation
+  pickUpModeInfo    ForexPickUpModeInfo?
+  documentInfo      ForexDocumentInfo
+  sourceOfFund      String
+  declarationAmount Float
+  metaInfo          ForexMetaInfo
+}
+
+enum ForexProductType {
+  card
+  cash
+}
+
+enum ForexPartnerId {
+  ebix
+}
+
+type ForexPickUpModeInfo {
+  branchCity        String?
+  branchArea        String?
+  branchId          String?
+  branchPincode     Int?
+  branchState       String?
+  branchAddress     String?
+  branchWorkingTime String?
+}
+
+type ForexDocumentInfo {
+  type  String?
+  value ForexDocumentsTypeInfo[]
+}
+
+type ForexDocumentsTypeInfo {
+  documentType String?
+  title        String?
+  iconUrl      String?
+  downloadUrl  String?
+}
+
+type ForexCustomerInfo {
+  personalInfo       ForexPersonalInfo
+  addressInfo        ForexAddressInfo?
+  billingAddressInfo ForexAddressInfo
+  beneficiaryInfo    ForexBeneficiaryInfo?
+}
+
+type ForexPersonalInfo {
+  salutation Int
+  firstName  String
+  lastName   String
+  mobile     String
+  email      String
+  dob        String
+  passport   String
+  pan        String
+}
+
+type ForexAddressInfo {
+  address String
+  pincode String
+  city    String
+  state   String
+  country String
+}
+
+type ForexBeneficiaryInfo {
+  firstName          String?
+  lastName           String?
+  bankAccount        String?
+  bankName           String?
+  bankBranch         String?
+  bankBranchAddress  String?
+  swiftCode          String?
+  message            String?
+  iban               String?
+  beneficiaryAddress String?
+}
+
+type ForexProductItemsInfo {
+  productId    String
+  productType  ForexProductType
+  productIcon  String
+  productItems ForexProductItems[]
+}
+
+type ForexProductItems {
+  currencyCode String
+  buyRate      Float
+  units        Int
+  priceInfo    ForexItemPriceInfo
+}
+
+type ForexItemPriceInfo {
+  inrAmount      Float
+  nostroCharges  Float
+  serviceCharges Float
+  convenienceFee Float
+  totalAmount    Float
+}
+
+type ForexPriceInfo {
+  inrAmount      Float
+  gstAmount      Float
+  nostroCharges  Float
+  serviceCharges Float
+  tcsAmount      Float
+  convenienceFee Float
+  totalAmount    Float
+}
+
+type ForexMetaInfo {
+  countryOfTravel String[]
+  travelDate      String
+}
+
+type ForexPromoInfo {
+  promoCode String?
+}
+
+// -------------------------------------Forex Ended-------------------------------------
+// -------------------------------------Car Parking-------------------------------------
+
+type CarParkingDetail {
+  promoDetails      CarParkingPromoDetails
+  contactDetail     CarParkingContactDetail
+  userInfo          CarParkingUserInfo
+  carParkingInfo    CarParkingInfo
+  pricingInfo       CarParkingPricingInfo
+  bookingInfo       CarParkingBookingInfo?
+  refundInfo        CarParkingRefundInfo?
+  gstInvoiceDetails CarParkingGstInvoiceDetails[]
+  cancelReason      String?
+}
+
+type CarParkingGstInvoiceDetails {
+  invoiceNumber         String?
+  stateCode             String?
+  stateName             String?
+  iGST                  Float?
+  cGST                  Float?
+  sGST                  Float?
+  ccfFee                Float?
+  invoiceType           String?
+  customerType          String?
+  invoiceGenerated      Boolean?
+  baseAmount            Float?
+  invoiceEmailDelivered Boolean?
+  irnDetails            CarParkingIRNDetails?
+}
+
+type CarParkingIRNDetails {
+  irnNumber String?
+  qrCode    String?
+  ackNo     String?
+  ackDate   String?
+}
+
+type CarParkingInfo {
+  validFrom               String
+  validTo                 String
+  airPortCode             String
+  facilityNumber          String
+  carParksNumber          String
+  carParksName            String
+  carPlateNumber          String
+  reason                  String?
+  productId               String
+  parkingLogicId          String
+  name                    String
+  description             String
+  contractorShortName     String
+  contractorName          String
+  nature                  String
+  tolerance               CarParkingTolerance?
+  isInvoiceDownloadEnable Boolean?
+  isApplyCouponEnable     Boolean?
+  entryTime               String?
+  exitTime                String?
+  terminalName            String?
+}
+
+type CarParkingTolerance {
+  toleranceBeforeStartTimeInMinutes String?
+  toleranceAfterStartTimeInMinutes  String?
+  toleranceAfterEndTimeInMinutes    String?
+}
+
+type CarParkingPricingInfo {
+  paymentMode       String?
+  basePrice         Float
+  taxAmount         Float
+  totalAmount       Float
+  discountPrice     Float
+  loyalty           Int?
+  loyaltyPercentage String?
+  referenceId       String?
+  loyaltyPoints     CarParkingLoyaltyPoints?
+  taxes             CarParkingTaxes
+  ccfFee            Float?
+  ccfFeeGST         CcffeeGST?
+}
+
+type CcffeeGST {
+  cGST Float?
+  sGST Float?
+  iGST Float?
+}
+
+type CarParkingPromoDetails {
+  promoCode                String?
+  promoType                String?
+  promoValue               Float
+  calculationBasedOnAmount String?
+  fundingPartners          PromoFundingPartners[]
+  merchantFunded           Boolean?
+  isInstantDiscount        Boolean?
+  appliedMsg               String?
+  appliedMsgShort          String?
+}
+
+type CarParkingContactDetail {
+  category       String?
+  firstName      String?
+  lastName       String?
+  countryCode    String?
+  mobileNumber   String?
+  whatsappOptIn  Boolean?
+  email          String?
+  gstNumber      String?
+  companyName    String?
+  address        String?
+  nationality    String?
+  pincode        String?
+  state          String?
+  city           String?
+  billingAddress CarParkingBillingAddress[]
+}
+
+type CarParkingBillingAddress {
+  addressLine  String?
+  street       String?
+  city         AddressDetailCity
+  postalCode   String?
+  stateProv    StateProv
+  country      AddressDetailCountry
+  formattedInd String?
+  type         String?
+  isPrimary    Boolean
+  operation    String?
+}
+
+type CarParkingUserInfo {
+  name        String?
+  email       String?
+  phoneNumber String
+  countryCode String?
+  firstName   String?
+  lastName    String?
+}
+
+type CarParkingBookingInfo {
+  bookingID String?
+  status    CarParkingBookingStatus?
+  qrValue   String?
+}
+
+type CarParkingLoyaltyPoints {
+  pendingRewardPoints Float
+  earnedRewardPoints  Float
+  burnedRewardPoints  Float
+}
+
+type CarParkingTaxes {
+  tax CarParkingTax[]
+}
+
+type CarParkingTax {
+  taxCode String
+  amount  Float
+}
+
+enum CarParkingBookingStatus {
+  Confirmed
+  Failed
+  Pending
+  Completed
+  Cancelled
+}
+
+type CarParkingRefundInfo {
+  referenceId        String?
+  refundDetails      CarParkingRefundDetail[]
+  paymentDetails     CarParkingPaymentDetails?
+  totalPaid          Float?
+  totalRefund        Float?
+  promoRefund        Float?
+  loyaltyRefund      Float
+  bankRefund         Float
+  cancelationCharges Float?
+}
+
+type CarParkingPaymentDetails {
+  bank    Float
+  loyalty Float
+  promo   Float
+}
+
+type CarParkingRefundDetail {
+  paymentMode     String?
+  amount          Float?
+  status          String?
+  rrn             String?
+  transactionDate DateTime?
+}
+
+// -------------------------------------Car Parking Ended-------------------------------------
+
+// -------------------------Group Booking Started -------------------------------------
+
+type GroupBookingDetail {
+  isActive                 Boolean?
+  createdOn                DateTime?
+  createdBy                String?
+  modifiedOn               DateTime?
+  modifiedBy               String?
+  groupBooking             GroupBookingBase
+  categoryType             String?
+  bookingType              String?
+  customerInfo             GroupBookingCustomerInfo
+  itineraryInfo            GroupBookingItineraryInfos
+  onwardFlight             GroupBookingAirlineDetails
+  returnFlight             GroupBookingAirlineDetails?
+  passengers               GroupBookingPassengersInfo[]
+  fareDetails              GroupBookingFareDetails
+  gstDetails               GroupBookingGstDetails
+  refundHistory            GroupBookingRefund[]
+  isPartialPayment         Boolean?
+  isFullPayment            Boolean?
+  isMultiplePartialPayment Boolean?
+  paymentHistory           GroupBookingPaymentHistoryInfo[]
+  invoiceDetails           GroupBookingGstInvoiceDetails[]
+}
+
+type GroupBookingBase {
+  groupBookId String?
+  referenceId String?
+}
+
+type GroupBookingPassengersInfo {
+  paxType    String?
+  title      String?
+  gender     String?
+  firstName  String?
+  middleName String?
+  lastName   String?
+  dob        DateTime?
+}
+
+type GroupBookingCustomerInfo {
+  nickname String?
+  name     String?
+  locale   String?
+  mobile   String?
+  email    String?
+  state    String?
+  pinCode  String?
+  city     String?
+  sub      String?
+}
+
+type GroupBookingItineraryInfos {
+  source        String?
+  destination   String?
+  travelDate    DateTime?
+  totalPaxCount Int?
+  adult         Int?
+  children      Int?
+  infant        Int?
+  tripType      Int?
+}
+
+type GroupBookingAirlineDetails {
+  numberOfStops     Int?
+  stoppages         Stoppage[]
+  source            String?
+  destination       String?
+  airlineName       String?
+  flightCode        String?
+  flightImg         String?
+  flightNumber      String?
+  departureDate     DateTime?
+  departureTime     Int?
+  arrivalDate       DateTime?
+  arrivalTime       Int?
+  departureAirport  String?
+  departureTerminal String?
+  arrivalAirport    String?
+  arrivalTerminal   String?
+  travelDuration    Int?
+  pnr               String?
+  gdspnr            String?
+  cabinBaggage      String?
+  checkinBaggage    String?
+}
+
+type Stoppage {
+  source            String?
+  destination       String?
+  airlineName       String?
+  flightCode        String?
+  flightImg         String?
+  flightNumber      String?
+  departureDate     DateTime?
+  departureTime     Int?
+  arrivalDate       DateTime?
+  arrivalTime       Int?
+  departureAirport  String?
+  departureTerminal String?
+  arrivalAirport    String?
+  arrivalTerminal   String?
+  travelDuration    Int?
+  pnr               String?
+  gdspnr            String?
+  cabinBaggage      String?
+  checkinBaggage    String?
+}
+
+type GroupBookingFareDetails {
+  baseFare       Float?
+  yQ             Float?
+  taxes          Float?
+  others         Float?
+  gst            Float?
+  adultFare      Float?
+  childFare      Float?
+  infantFare     Float?
+  convenienceFee Float?
+  discountAmount Float?
+  totalAmount    Float?
+  igst           Float?
+  cgst           Float?
+  sgst           Float?
+}
+
+type GroupBookingGstDetails {
+  gstNumber   String?
+  companyName String?
+  address     String?
+  state       String?
+  pinCode     String?
+  city        String?
+}
+
+type GroupBookingRefund {
+  refundId     String?
+  status       String?
+  date         DateTime?
+  refundAmount Int?
+  refundType   String?
+}
+
+type GroupBookingPaymentHistoryInfo {
+  transactionReferenceId   String?
+  status                   String?
+  amount                   Float?
+  isPartialPayment         Boolean?
+  isFullPayment            Boolean?
+  isMultiplePartialPayment Boolean?
+  createdOn                DateTime?
+  modifiedOn               DateTime?
+  paymentLinks             String?
+  modeOfPayment            String?
+}
+
+type GroupBookingIRNDetails {
+  irnNumber String?
+  qrCode    String?
+  ackNo     String?
+  ackDate   String?
+  message   String?
+}
+
+type GroupBookingGstInvoiceDetails {
+  invoiceNumber         String?
+  stateCode             String?
+  stateName             String?
+  iGST                  Float?
+  cGST                  Float?
+  sGST                  Float?
+  ccfFee                Float?
+  invoiceType           String?
+  customerType          String?
+  invoiceGenerated      Boolean?
+  invoiceEmailDelivered Boolean?
+  irnDetails            GroupBookingIRNDetails?
+}
+
+//------------------------------------Group Booking Ended ---------------------------------
+// -------------------------------------FnB Started-------------------------------------
+
+type FoodAndBeveragesDetail {
+  salesChannel                      String
+  terminal                          String
+  airportLevel                      String
+  type                              String
+  appliedProductPromotions          FnbAppliedOrderPromotions[]
+  // appliedOrderPromotions            String[] // FIXME :: check with lob
+  appliedVouchers                   FnbAppliedVouchers[]
+  calculated                        Boolean
+  cartcode                          String
+  contactName                       String?
+  contactNumber                     String?
+  deliveryCost                      FoodAndBeveragesPriceInfo?
+  deliveryItemsQuantity             Int
+  deliveryMode                      FoodAndBeveragesDeliveryMode?
+  deliveryOrderGroups               FoodAndBeveragesDeliveryOrderGroup[]
+  // entries                           FoodAndBeveragesEntry[]
+  guid                              String?
+  net                               Boolean
+  orderDiscounts                    FoodAndBeveragesPriceInfo
+  pickupInfo                        FoodAndBeveragesPickupInfo
+  pickupItemsQuantity               Int
+  productDiscounts                  FoodAndBeveragesPriceInfo
+  site                              String
+  store                             String
+  subTotal                          FoodAndBeveragesPriceInfo
+  totalMRP                          Float
+  totalConvenienceCost              FoodAndBeveragesPriceInfo
+  totalConvenienceCostWithoutTax    FoodAndBeveragesPriceInfo
+  totalConvenienceTaxValue          FoodAndBeveragesPriceInfo
+  totalDeliveryCostWithoutTax       FoodAndBeveragesPriceInfo
+  totalDeliveryTaxValue             FoodAndBeveragesPriceInfo
+  totalDiscounts                    FoodAndBeveragesPriceInfo
+  totalItems                        Int
+  totalPackagingCost                FoodAndBeveragesPriceInfo
+  totalPackagingCostWithoutTax      FoodAndBeveragesPriceInfo
+  totalPackagingTaxValue            FoodAndBeveragesPriceInfo
+  totalServiceCostWithoutTax        FoodAndBeveragesPriceInfo
+  totalServiceTaxValue              FoodAndBeveragesPriceInfo
+  totalPrice                        FoodAndBeveragesPriceInfo
+  totalPriceWithTax                 FoodAndBeveragesPriceInfo
+  totalPriceWithoutCancellationCost FoodAndBeveragesPriceInfo?
+  totalServiceCost                  FoodAndBeveragesPriceInfo
+  totalTax                          FoodAndBeveragesPriceInfo
+  user                              FoodAndBeveragesUser
+  totalUnitCount                    Int
+  deliveryModes                     FoodAndBeveragesDeliveryMode[]
+  taxRows                           FoodAndBeveragesTaxRow[]
+  // paymentDetails                    String? // update payment details
+  refundDetails                     FoodAndBeveragesRefundDetails?
+  // businessSubType                   String
+  // businessType                      String
+  // cancellable                       Boolean
+  // consignments                      String?
+  // created                           String
+  // guestCustomer                     Boolean
+  // status1                           String?
+  // statusDisplay                     String?
+  // unconsignedEntries                String?
+  // totalCancellationCost             String?
+  // totalCancellationCostWithoutTax   String?
+  // totalCancellationTaxValue         String?
+  // cancellationReasons               String?
+  // loyaltyPotentialPoint             Int
+  baseImageUrl                      String
+  isMultiCart                       Boolean
+  promoDetail                       FoodAndBeveragesPromoDetail
+  // finalAmount                       String?
+  // status                            Boolean
+  // message                           String?
+  // code                              String?
+  // warning                           String?
+  // error                             String?
+  // errors                            String?
+  fnbOrderHistory                   FoodAndBeveragesOrderHistory[]
+  invoiceDetails                    FoodAndBeveragesInvoiceDetails[]
+}
+
+type FoodAndBeveragesOrderHistory {
+  status    FoodAndBeveragesOrderStatus?
+  createdOn DateTime
+}
+
+enum FoodAndBeveragesOrderStatus {
+  VERIFIED
+  PLACED
+  CREATED
+  SHIPPING
+  SHIPPED
+  RECEIVED
+  REJECTED
+}
+
+type FoodAndBeveragesRefundDetails {
+  amount             Float?
+  isCancelledByUser  Boolean?
+  isFullCancellation Boolean?
+  cancellationFee    Float?
+  cancellationTax    Float?
+  platformFee        Float?
+  platformTax        Float?
+  convenienceFee     Float?
+  convenienceFeeTax  Float?
+  serviceFee         Float?
+  serviceFeeTax      Float?
+  packagingFee       Float?
+  packagingFeeTax    Float?
+  deliveryFee        Float?
+  deliveryFeeTax     Float?
+}
+
+type FoodAndBeveragesPriceInfo {
+  currencyIso    String?
+  formattedValue String?
+  priceType      String?
+  value          Float?
+}
+
+type FoodAndBeveragesDeliveryMode {
+  code         String?
+  deliveryCost FoodAndBeveragesPriceInfo?
+  name         String?
+}
+
+// type FoodAndBeveragesMerchantInfo {
+//   merchantId         Int?
+//   merchantName       String?
+//   merchantAccessCode String?
+//   merchantChargeId   Int?
+//   merchantReturnUrl  String?
+//   storeId            String?
+//   storeName          String?
+//   lob                String?
+//   locationCode       String?
+// }
+
+type FoodAndBeveragesDeliveryOrderGroup {
+  // merchantDetails       FoodAndBeveragesMerchantInfo?
+  entries               FoodAndBeveragesEntry[]
+  shopId                String
+  subOrderId            String?
+  shopName              String
+  logoUrl               String
+  storeStatus           String
+  preOrderAllowedUpto   String
+  contactInformation    FoodAndBeveragesContactInformation
+  shopConvenienceCharge FoodAndBeveragesPriceInfo?
+  shopDeliveryCharge    String?
+  shopPackagingCharge   String?
+  shopServiceCharge     Float?
+  shopOperatingHour     String
+  quantity              Int
+  restaurantType        String?
+  miraklOrderUrl        String?
+}
+
+type FoodAndBeveragesPickupInfo {
+  dob                String?
+  email              String?
+  flight             String?
+  countryDialInCode  String?
+  mobileNumber       String?
+  salutation         String?
+  name               String?
+  firstName          String?
+  lastName           String?
+  nationality        String?
+  passportExpiryDate String?
+  passportNumber     String?
+  pickupDate         String?
+  pickupTime         String?
+  pnr                String?
+  billingAddress     FoodAndBeveragesAddress?
+  shippingAddress    FoodAndBeveragesAddress?
+}
+
+type FoodAndBeveragesAddress {
+  address       String?
+  pinCode       String?
+  state         String?
+  city          String?
+  countryCode   String?
+  country       String?
+  company       String?
+  streetFirst   String?
+  streetSecond  String?
+  phoneSecondry String?
+  // accountingContact String?
+  // deliveryContact   String?
+  // organization      String?
+}
+
+type FoodAndBeveragesEntry {
+  basePrice               FoodAndBeveragesPriceInfo
+  basePriceWithoutTax     Float?
+  taxRows                 FoodAndBeveragesTaxRow[]
+  updateable              Boolean
+  lastEntry               Boolean
+  cancellableQuantity     Int
+  configTotalPrice        FoodAndBeveragesPriceInfo
+  configurationInfos      FoodAndBeveragesConfigurationInfos[]
+  convenienceCharge       FoodAndBeveragesPriceInfo?
+  deliveryCharge          FoodAndBeveragesPriceInfo?
+  discountMode            String?
+  discountValue           Float
+  originalPrice           Float
+  originalPriceWithoutTax Float?
+  discountWithoutTax      Float?
+  entryNumber             Int
+  giveAway                Boolean
+  lineShippingPrice       Float
+  offerId                 String
+  packagingCharge         FoodAndBeveragesPriceInfo?
+  product                 FoodAndBeveragesProduct
+  quantity                Int
+  returnableQuantity      Int
+  serviceCharge           FoodAndBeveragesPriceInfo?
+  shopId                  String
+  shopName                String
+  totalPrice              FoodAndBeveragesPriceInfo
+  instructions            String?
+  deliveryPointOfService  FoodAndBeveragesDeliveryPointOfService[]
+}
+
+type FoodAndBeveragesDeliveryPointOfService {
+  name        String?
+  active      Boolean?
+  address     FoodAndBeveragesPosAddress?
+  displayName String?
+  geoPoint    FoodAndBeveragesGeoPoint?
+  features    FoodAndBeveragesFeatures?
+}
+
+type FoodAndBeveragesPosAddress {
+  // country             unknown
+  defaultAddress       Boolean?
+  formattedAddress     String?
+  id                   String?
+  shippingAddress      Boolean?
+  visibleInAddressBook Boolean?
+}
+
+type FoodAndBeveragesGeoPoint {
+  latitude  Float?
+  longitude Float?
+}
+
+type FoodAndBeveragesFeatures {
+  entry FoodAndBeveragesCartSapFeature[]
+}
+
+type FoodAndBeveragesCartSapFeature {
+  key   String?
+  value String?
+}
+
+type FoodAndBeveragesConfigurationInfos {
+  configPrice        Float?
+  configurationLabel String?
+  configurationValue String?
+  configuratorType   String?
+  id                 String?
+  status             String?
+}
+
+type FoodAndBeveragesProduct {
+  availableForPickup Boolean?
+  categories         FoodAndBeveragesCategory[]
+  code               String?
+  configurable       Boolean?
+  foodType           String?
+  images             FoodAndBeveragesImage[]
+  name               String?
+  purchasable        Boolean?
+  stock              FoodAndBeveragesStock?
+  url                String?
+  packagedFood       Boolean?
+  portionSize        String?
+  variantAttributes  FoodAndBeveragesVariantAttributes[]
+}
+
+type FoodAndBeveragesVariantAttributes {
+  key   String?
+  value String[]
+}
+
+type FoodAndBeveragesCategory {
+  code String?
+  name String?
+  url  String?
+}
+
+type FoodAndBeveragesImage {
+  altText   String?
+  format    String?
+  imageType String?
+  url       String?
+}
+
+type FoodAndBeveragesStock {
+  isValueRounded   Boolean?
+  stockLevel       Int?
+  stockLevelStatus String?
+}
+
+type FoodAndBeveragesTaxRow {
+  absolute     Boolean?
+  appliedValue Float?
+  code         String?
+  isoCode      String?
+  value        Float?
+}
+
+type FoodAndBeveragesContactInformation {
+  country        FoodAndBeveragesCountry?
+  defaultAddress Boolean?
+  email          String?
+  firstName      String?
+  id             String?
+  lastName       String?
+  line1          String?
+  phone          String?
+  postalCode     String?
+  town           String?
+}
+
+type FoodAndBeveragesCountry {
+  isocode String?
+}
+
+type FoodAndBeveragesUser {
+  name String?
+  uid  String?
+}
+
+type FoodAndBeveragesPromoDetail {
+  promoCode  String?
+  promoValue Float?
+}
+
+type FnbAppliedOrderPromotions {
+  consumedEntries FnbConsumedEntries[]
+  description     String?
+  promotion       FnbPromotion?
+}
+
+type FnbPromotion {
+  code          String?
+  description   String?
+  promotionType String?
+}
+
+type FnbConsumedEntries {
+  adjustedUnitPrice Float?
+  orderEntryNumber  Int?
+  quantity          Int?
+}
+
+type FnbAppliedVouchers {
+  code         String?
+  freeShipping Boolean?
+  fundedBy     String?
+  voucherCode  String?
+}
+
+type FoodAndBeveragesInvoiceDetails {
+  invoiceNumber String?
+  state         String?
+  ccfFee        Float?
+  iGST          Float?
+  sGST          Float?
+  cGST          Float?
+  invoiceType   String?
+}
+
+// -------------------------------------FnB Ended--------------------------------------
